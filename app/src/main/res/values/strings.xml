@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">ListView</string>
+    <string-array name="Country">
+        <item>indonesia</item>
+        <item>MMalaysia</item>
+        <item>Thailand</item>
+        <item>philipin</item>
+        <item>Singapura</item>
+        <item>Bruney</item>
+    </string-array>
+
+    <string-array name="kelamin">
+        <item>Cowok</item>
+        <item>Cewek</item>
+    </string-array>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
