@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -29,8 +30,9 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
 
     private ImageView imgCaptureResult;
     private Button btnOpnCam, btnSvimg;
-    private final int CAMERA_REQUEST_CDE = 400;
+    private final int CAMERA_REQUEST_CODE = 400;
     private final int WRITE_STORAGE_REQUEST_CODE = 401;
+    private final int REQUEST_SAVE_IMAGE = 200;
     private OutputStream outputStream;
 
 
@@ -54,16 +56,11 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         switch (v.getId()) {
             case R.id.btn_Cam:
                 Intent intenCamera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                startActivityForResult(intenCamera, CAMERA_REQUEST_CDE);
+                startActivityForResult(intenCamera, CAMERA_REQUEST_CODE);
                 return;
             case R.id.btn_svImg:
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                       == PackageManager.PERMISSION_GRANTED){
-                    saveImage();
-                }else{
-                    askPermisiion();
-                }
-                break;
+                saveImage();
+                return;
         }
 
     }
@@ -71,61 +68,50 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == RESULT_OK){
-            if (requestCode == CAMERA_REQUEST_CDE){
-                Bitmap imgResult = (Bitmap) data.getExtras().get("data");
-                imgCaptureResult.setImageBitmap(imgResult);
-                btnSvimg.setVisibility(View.VISIBLE);
+        if (requestCode == CAMERA_REQUEST_CODE && resultCode == RESULT_OK) {
+            Bundle extras = data.getExtras();
+            Bitmap imageBitmap = (Bitmap) extras.get("data");
+            imgCaptureResult.setImageBitmap(imageBitmap);
+            btnSvimg.setVisibility(View.VISIBLE);
+
+        } else if (requestCode == REQUEST_SAVE_IMAGE && resultCode == RESULT_OK) {
+            // Simpan gambar ke lokasi yang dipilih
+            Uri uri = data.getData();
+            try {
+                OutputStream outputStream = getContentResolver().openOutputStream(uri);
+                BitmapDrawable drawable = (BitmapDrawable) imgCaptureResult.getDrawable();
+                Bitmap bitmap = drawable.getBitmap();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+                outputStream.flush();
+                outputStream.close();
+                Toast.makeText(this, "Gambar berhasil disimpan", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Gagal menyimpan gambar", Toast.LENGTH_SHORT).show();
             }
+            btnSvimg.setVisibility(View.GONE);
         }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == WRITE_STORAGE_REQUEST_CODE){
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                saveImage();
-
-            }else{
-                Toast.makeText(this, "Harapkan ijinkan untuk menyimpan gambar", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    private  void askPermisiion(){
-        ActivityCompat.requestPermissions (this, new String[]
-                {Manifest.permission.WRITE_EXTERNAL_STORAGE}, WRITE_STORAGE_REQUEST_CODE);
     }
 
     private void saveImage(){
-        File dir = new File(Environment.getExternalStorageDirectory(), "Mobile_App");
-        if(!dir.exists()){
-            dir.mkdir();
+        if (imgCaptureResult.getDrawable() == null) {
+            Toast.makeText(this, "Belum ada gambar yang diambil", Toast.LENGTH_SHORT).show();
+            return;
         }
-        BitmapDrawable drawable = (BitmapDrawable) imgCaptureResult.getDrawable();
-        Bitmap bitmap = drawable.getBitmap();
-        String imageName = System.currentTimeMillis()+".jpg";
-        File file = new File(dir, imageName);
-        try {
-            outputStream = new FileOutputStream(file);
-        }catch (FileNotFoundException e) {
-            e.printStackTrace();
-
+        // cek apakah sudah memiliki izin akses penyimpanan
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_SAVE_IMAGE);
+        } else {
+            // dapatkan gambar dari ImageView
+            BitmapDrawable drawable = (BitmapDrawable) imgCaptureResult.getDrawable();
+            Bitmap bitmap = drawable.getBitmap();
+            // tampilkan dialog untuk memilih lokasi penyimpanan gambar
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/jpeg");
+            String ImageName = "prtmn1" + System.currentTimeMillis() + ".JPG";
+            intent.putExtra(Intent.EXTRA_TITLE, ImageName);
+            startActivityForResult(intent, REQUEST_SAVE_IMAGE);
         }
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
-        Toast.makeText(this, "Gambar Berhasil Disimpan!!! :" + imageName, Toast.LENGTH_SHORT).show();
-
-        try {
-            outputStream.flush();
-        }catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            outputStream.close();
-        }catch (IOException e) {
-            e.printStackTrace();
-        }
-
     }
 }
